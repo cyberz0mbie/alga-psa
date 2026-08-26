@@ -33,13 +33,18 @@ function errorMessage(error: unknown): string {
   return String(error);
 }
 
-async function getOrCreatePax8Integration(tenant: string) {
+async function findPax8Integration(tenant: string) {
   const { knex } = await createTenantKnex();
   const integrations = await listVendorIntegrations(knex, tenant);
-  const existing = integrations.find((integration) => integration.provider === PROVIDER);
-  if (existing) return { knex, integration: existing };
+  const integration = integrations.find((item) => item.provider === PROVIDER);
+  return { knex, integration };
+}
 
-  const integration = await createVendorIntegration(knex, tenant, {
+async function getOrCreatePax8Integration(tenant: string) {
+  const found = await findPax8Integration(tenant);
+  if (found.integration) return { knex: found.knex, integration: found.integration };
+
+  const integration = await createVendorIntegration(found.knex, tenant, {
     provider: PROVIDER,
     display_name: 'Pax8',
     config: {
@@ -47,7 +52,7 @@ async function getOrCreatePax8Integration(tenant: string) {
       automatic_reconciliation: false,
     },
   });
-  return { knex, integration };
+  return { knex: found.knex, integration };
 }
 
 async function buildConfiguredPax8Client(tenant: string, integrationId: string): Promise<Pax8ApiClient> {
@@ -90,7 +95,17 @@ export const getPax8Settings = withAuth(async (
   if (!permitted) return { success: false, error: 'Forbidden' };
 
   try {
-    const { integration } = await getOrCreatePax8Integration(tenant);
+    const { integration } = await findPax8Integration(tenant);
+    if (!integration) {
+      return {
+        success: true,
+        credentials: {
+          hasClientId: false,
+          hasClientSecret: false,
+        },
+      };
+    }
+
     const secretProvider = await getSecretProviderInstance();
     const [clientId, clientSecret] = await Promise.all([
       secretProvider.getTenantSecret(tenant, clientIdSecretName(integration.integration_id)),
@@ -189,12 +204,16 @@ export const testPax8Connection = withAuth(async (
   const permitted = await hasPermission(user as any, 'system_settings', 'update');
   if (!permitted) return { success: false, error: 'Forbidden' };
 
+  const found = await findPax8Integration(tenant);
+  if (!found.integration) {
+    return { success: false, error: 'Pax8 is not configured' };
+  }
+
   try {
-    const { knex, integration } = await getOrCreatePax8Integration(tenant);
-    const client = await buildConfiguredPax8Client(tenant, integration.integration_id);
+    const client = await buildConfiguredPax8Client(tenant, found.integration.integration_id);
     await client.testConnection();
 
-    await updateVendorIntegrationState(knex, tenant, integration.integration_id, {
+    await updateVendorIntegrationState(found.knex, tenant, found.integration.integration_id, {
       status: 'connected',
       last_error: null,
     });
@@ -202,15 +221,10 @@ export const testPax8Connection = withAuth(async (
     return { success: true };
   } catch (error) {
     const message = errorMessage(error);
-    try {
-      const { knex, integration } = await getOrCreatePax8Integration(tenant);
-      await updateVendorIntegrationState(knex, tenant, integration.integration_id, {
-        status: 'error',
-        last_error: message,
-      });
-    } catch {
-      // Preserve the original connection error.
-    }
+    await updateVendorIntegrationState(found.knex, tenant, found.integration.integration_id, {
+      status: 'error',
+      last_error: message,
+    }).catch(() => undefined);
     return { success: false, error: message };
   }
 });
@@ -223,9 +237,10 @@ export const disconnectPax8Integration = withAuth(async (
   if (!permitted) return { success: false, error: 'Forbidden' };
 
   try {
-    const { knex, integration } = await getOrCreatePax8Integration(tenant);
-    const secretProvider = await getSecretProviderInstance();
+    const { knex, integration } = await findPax8Integration(tenant);
+    if (!integration) return { success: true };
 
+    const secretProvider = await getSecretProviderInstance();
     await Promise.all([
       secretProvider.deleteTenantSecret(tenant, clientIdSecretName(integration.integration_id)).catch(() => undefined),
       secretProvider.deleteTenantSecret(tenant, clientSecretSecretName(integration.integration_id)).catch(() => undefined),
@@ -250,7 +265,9 @@ export const syncPax8ReadOnly = withAuth(async (
   if (!permitted) return { success: false, error: 'Forbidden' };
 
   try {
-    const { knex, integration } = await getOrCreatePax8Integration(tenant);
+    const { knex, integration } = await findPax8Integration(tenant);
+    if (!integration) return { success: false, error: 'Pax8 is not configured' };
+
     const client = await buildConfiguredPax8Client(tenant, integration.integration_id);
     const result = await runPax8ReadOnlySync(knex, tenant, integration.integration_id, client);
     return { success: true, result };
