@@ -38,7 +38,10 @@ function formatTimestamp(value?: string | null): string {
 
 export function Pax8IntegrationSettings() {
   const { toast } = useToast();
-  const { t } = useTranslation('msp/integrations');
+  // Keep this component registered with the integrations namespace while the
+  // initial Pax8 UI copy is stabilized. Full key coverage will follow after
+  // the read-only workflow is verified against a live tenant.
+  useTranslation('msp/integrations');
 
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
@@ -185,7 +188,7 @@ export function Pax8IntegrationSettings() {
         <CardContent className="py-10">
           <div className="flex items-center justify-center gap-3 text-sm text-muted-foreground">
             <Spinner size="sm" />
-            {t('integrations.vendors.pax8.loadingSettings', { defaultValue: 'Loading Pax8 settings...' })}
+            Loading Pax8 settings...
           </div>
         </CardContent>
       </Card>
@@ -198,7 +201,7 @@ export function Pax8IntegrationSettings() {
         <CardHeader>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <CardTitle>{t('integrations.vendors.pax8.name', { defaultValue: 'Pax8' })}</CardTitle>
+              <CardTitle>Pax8</CardTitle>
               <CardDescription>
                 Import customers, subscribed products, quantities, and vendor usage for reconciliation with AlgaPSA.
               </CardDescription>
