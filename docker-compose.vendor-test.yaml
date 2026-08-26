@@ -1,0 +1,11 @@
+services:
+  server:
+    environment:
+      # Vendor integrations persist tenant credentials through Alga's filesystem
+      # secret provider. Docker's /run/secrets location is intended for mounted
+      # application secrets, so use a writable bind for tenant-level test secrets.
+      SECRET_FS_BASE_PATH: /app/runtime-secrets
+    volumes:
+      - type: bind
+        source: ./secrets
+        target: /app/runtime-secrets
