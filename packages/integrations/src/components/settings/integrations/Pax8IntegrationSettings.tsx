@@ -9,6 +9,7 @@ import { Label } from '@alga-psa/ui/components/Label';
 import Spinner from '@alga-psa/ui/components/Spinner';
 import { Eye, EyeOff, RefreshCw, Save, Unlink } from 'lucide-react';
 import { useToast } from '@alga-psa/ui/hooks/use-toast';
+import { useTranslation } from '@alga-psa/ui/lib/i18n/client';
 import {
   disconnectPax8Integration,
   getPax8Settings,
@@ -37,6 +38,7 @@ function formatTimestamp(value?: string | null): string {
 
 export function Pax8IntegrationSettings() {
   const { toast } = useToast();
+  const { t } = useTranslation('msp/integrations');
 
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
@@ -183,7 +185,7 @@ export function Pax8IntegrationSettings() {
         <CardContent className="py-10">
           <div className="flex items-center justify-center gap-3 text-sm text-muted-foreground">
             <Spinner size="sm" />
-            Loading Pax8 settings...
+            {t('integrations.vendors.pax8.loadingSettings', { defaultValue: 'Loading Pax8 settings...' })}
           </div>
         </CardContent>
       </Card>
@@ -196,7 +198,7 @@ export function Pax8IntegrationSettings() {
         <CardHeader>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <CardTitle>Pax8</CardTitle>
+              <CardTitle>{t('integrations.vendors.pax8.name', { defaultValue: 'Pax8' })}</CardTitle>
               <CardDescription>
                 Import customers, subscribed products, quantities, and vendor usage for reconciliation with AlgaPSA.
               </CardDescription>
