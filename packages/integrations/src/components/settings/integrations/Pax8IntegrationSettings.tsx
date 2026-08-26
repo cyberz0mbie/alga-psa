@@ -243,6 +243,7 @@ export function Pax8IntegrationSettings() {
                   autoComplete="off"
                 />
                 <Button
+                  id="pax8-toggle-client-id-visibility"
                   type="button"
                   variant="outline"
                   size="icon"
@@ -267,6 +268,7 @@ export function Pax8IntegrationSettings() {
                   autoComplete="new-password"
                 />
                 <Button
+                  id="pax8-toggle-client-secret-visibility"
                   type="button"
                   variant="outline"
                   size="icon"
@@ -281,15 +283,15 @@ export function Pax8IntegrationSettings() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button type="button" onClick={handleSave} disabled={!canSave || saving}>
+            <Button id="pax8-save-credentials" type="button" onClick={handleSave} disabled={!canSave || saving}>
               {saving ? <Spinner size="xs" /> : <Save className="mr-2 h-4 w-4" />}
               Save credentials
             </Button>
-            <Button type="button" variant="outline" onClick={handleTest} disabled={!isConfigured || testing}>
+            <Button id="pax8-test-connection" type="button" variant="outline" onClick={handleTest} disabled={!isConfigured || testing}>
               {testing ? <Spinner size="xs" /> : <RefreshCw className="mr-2 h-4 w-4" />}
               Test connection
             </Button>
-            <Button type="button" variant="outline" onClick={handleDisconnect} disabled={!isConfigured || disconnecting}>
+            <Button id="pax8-disconnect" type="button" variant="outline" onClick={handleDisconnect} disabled={!isConfigured || disconnecting}>
               {disconnecting ? <Spinner size="xs" /> : <Unlink className="mr-2 h-4 w-4" />}
               Disconnect
             </Button>
@@ -351,7 +353,7 @@ export function Pax8IntegrationSettings() {
             </div>
           )}
 
-          <Button type="button" onClick={handleSync} disabled={!isConnected || syncing}>
+          <Button id="pax8-run-read-only-sync" type="button" onClick={handleSync} disabled={!isConnected || syncing}>
             {syncing ? <Spinner size="xs" /> : <RefreshCw className="mr-2 h-4 w-4" />}
             Run read-only sync
           </Button>
