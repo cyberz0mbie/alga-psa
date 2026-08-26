@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@alga
 import Spinner from '@alga-psa/ui/components/Spinner';
 import { RefreshCw } from 'lucide-react';
 import { useToast } from '@alga-psa/ui/hooks/use-toast';
+import { useTranslation } from '@alga-psa/ui/lib/i18n/client';
 import type { IClient, IService, IVendorClientMapping, IVendorServiceMapping } from '@alga-psa/types';
 import { getIntegrationClients } from '../../../actions/clientLookupActions';
 import { getServices } from '../../../actions/serviceCatalogActions';
@@ -24,6 +25,7 @@ function mappingLabel(status: IVendorClientMapping['mapping_status'] | IVendorSe
 
 export function Pax8MappingSettings() {
   const { toast } = useToast();
+  const { t } = useTranslation('msp/integrations');
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [clients, setClients] = React.useState<IClient[]>([]);
@@ -136,7 +138,7 @@ export function Pax8MappingSettings() {
         <CardContent className="py-10">
           <div className="flex items-center justify-center gap-3 text-sm text-muted-foreground">
             <Spinner size="sm" />
-            Loading Pax8 mappings...
+            {t('integrations.vendors.pax8.loadingMappings', { defaultValue: 'Loading Pax8 mappings...' })}
           </div>
         </CardContent>
       </Card>
@@ -149,7 +151,7 @@ export function Pax8MappingSettings() {
         <CardHeader>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <CardTitle>Customer mapping</CardTitle>
+              <CardTitle>{t('integrations.vendors.pax8.customerMappingTitle', { defaultValue: 'Customer mapping' })}</CardTitle>
               <CardDescription>
                 Match each Pax8 customer to the existing AlgaPSA client that should own its subscriptions.
               </CardDescription>
@@ -231,7 +233,7 @@ export function Pax8MappingSettings() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Product mapping</CardTitle>
+          <CardTitle>{t('integrations.vendors.pax8.productMappingTitle', { defaultValue: 'Product mapping' })}</CardTitle>
           <CardDescription>
             Match Pax8 products to your existing AlgaPSA service catalog. These settings only prepare future reconciliation; billing writes remain disabled.
           </CardDescription>
