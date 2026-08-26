@@ -159,7 +159,7 @@ export function Pax8MappingSettings() {
                 Match each Pax8 customer to the existing AlgaPSA client that should own its subscriptions.
               </CardDescription>
             </div>
-            <Button type="button" variant="outline" onClick={() => void load()}>
+            <Button id="pax8-refresh-mappings" type="button" variant="outline" onClick={() => void load()}>
               <RefreshCw className="mr-2 h-4 w-4" />
               Refresh
             </Button>
@@ -215,6 +215,7 @@ export function Pax8MappingSettings() {
                         </td>
                         <td className="px-4 py-3 text-right">
                           <Button
+                            id={`pax8-client-map-action-${mapping.mapping_id}`}
                             type="button"
                             size="sm"
                             variant="outline"
@@ -310,6 +311,7 @@ export function Pax8MappingSettings() {
                         </td>
                         <td className="px-4 py-3 text-right">
                           <Button
+                            id={`pax8-service-map-action-${mapping.mapping_id}`}
                             type="button"
                             size="sm"
                             variant="outline"
