@@ -43,14 +43,16 @@ if [ ! -f "$ASC_JS" ]; then
   (cd /app/server/src/invoice-templates/assemblyscript && npm install --cache /app/.npm-cache --silent)
 fi
 
-# The marketing workspace exports runtime entrypoints from dist/. Most local
-# workspace packages are source-aliased by Next/Turbopack, but marketing is not.
-# Build it on demand for source-built CE test containers so imports such as
-# @alga-psa/marketing/lib resolve without requiring a full monorepo prebuild.
-MARKETING_DIST="/app/packages/marketing/dist/lib/index.js"
-if [ ! -f "$MARKETING_DIST" ]; then
-  echo "[server-dev-entrypoint] Building @alga-psa/marketing workspace..."
-  (cd /app/packages/marketing && npm run build --silent)
+# The stock source-development image does not prebuild every workspace package.
+# Some server imports therefore fall through package exports to dist/ entrypoints
+# that are missing at runtime (for example marketing -> opportunities). The normal
+# CE production build already uses `nx build-deps server`; enable that same
+# dependency build for the isolated vendor test stack so the complete dependency
+# closure exists before Next/Turbopack starts.
+if [ "${ALGA_BUILD_SERVER_DEPS:-0}" = "1" ]; then
+  echo "[server-dev-entrypoint] Building complete server workspace dependency graph..."
+  cd /app
+  npx --no-install nx build-deps server --output-style=static
 fi
 
 cd /app/server
