@@ -25,7 +25,10 @@ function mappingLabel(status: IVendorClientMapping['mapping_status'] | IVendorSe
 
 export function Pax8MappingSettings() {
   const { toast } = useToast();
-  const { t } = useTranslation('msp/integrations');
+  // Keep this component registered with the integrations namespace while the
+  // initial Pax8 UI copy is stabilized. Full key coverage will follow after
+  // the read-only workflow is verified against a live tenant.
+  useTranslation('msp/integrations');
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [clients, setClients] = React.useState<IClient[]>([]);
@@ -138,7 +141,7 @@ export function Pax8MappingSettings() {
         <CardContent className="py-10">
           <div className="flex items-center justify-center gap-3 text-sm text-muted-foreground">
             <Spinner size="sm" />
-            {t('integrations.vendors.pax8.loadingMappings', { defaultValue: 'Loading Pax8 mappings...' })}
+            Loading Pax8 mappings...
           </div>
         </CardContent>
       </Card>
@@ -151,7 +154,7 @@ export function Pax8MappingSettings() {
         <CardHeader>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <CardTitle>{t('integrations.vendors.pax8.customerMappingTitle', { defaultValue: 'Customer mapping' })}</CardTitle>
+              <CardTitle>Customer mapping</CardTitle>
               <CardDescription>
                 Match each Pax8 customer to the existing AlgaPSA client that should own its subscriptions.
               </CardDescription>
@@ -233,7 +236,7 @@ export function Pax8MappingSettings() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{t('integrations.vendors.pax8.productMappingTitle', { defaultValue: 'Product mapping' })}</CardTitle>
+          <CardTitle>Product mapping</CardTitle>
           <CardDescription>
             Match Pax8 products to your existing AlgaPSA service catalog. These settings only prepare future reconciliation; billing writes remain disabled.
           </CardDescription>
