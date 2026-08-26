@@ -1,5 +1,9 @@
 services:
   server:
+    # docker-compose.ce.yaml overrides Dockerfile.dev's ENTRYPOINT with
+    # /app/entrypoint.sh, which does not exist in the development image.
+    # Restore the development entrypoint for this source-built test stack.
+    entrypoint: ["/app/server-dev-entrypoint.sh"]
     environment:
       # Vendor integrations persist tenant credentials through Alga's filesystem
       # secret provider. Docker's /run/secrets location is intended for mounted
