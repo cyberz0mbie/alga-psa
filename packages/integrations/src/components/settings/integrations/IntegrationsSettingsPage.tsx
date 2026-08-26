@@ -28,6 +28,7 @@ import {
 import AccountingIntegrationsSetup from './AccountingIntegrationsSetup';
 import RmmIntegrationsSetup from './RmmIntegrationsSetup';
 import Pax8IntegrationSettings from './Pax8IntegrationSettings';
+import Pax8MappingSettings from './Pax8MappingSettings';
 import { EmailProviderConfiguration } from '../../email/EmailProviderConfiguration';
 import { ProviderCredentialsWorkbench } from './ProviderCredentialsWorkbench';
 import { CalendarEnterpriseIntegrationSettings } from './CalendarEnterpriseIntegrationSettings';
@@ -253,6 +254,12 @@ const IntegrationsSettingsPage: React.FC<IntegrationsSettingsPageProps> = ({
           name: 'Pax8',
           description: 'Import Pax8 customers, subscribed products, and quantities for read-only reconciliation.',
           component: Pax8IntegrationSettings,
+        },
+        {
+          id: 'pax8-mappings',
+          name: 'Pax8 mappings',
+          description: 'Map Pax8 customers and products to existing AlgaPSA clients and services.',
+          component: Pax8MappingSettings,
         },
       ],
     },
