@@ -43,6 +43,16 @@ if [ ! -f "$ASC_JS" ]; then
   (cd /app/server/src/invoice-templates/assemblyscript && npm install --cache /app/.npm-cache --silent)
 fi
 
+# The marketing workspace exports runtime entrypoints from dist/. Most local
+# workspace packages are source-aliased by Next/Turbopack, but marketing is not.
+# Build it on demand for source-built CE test containers so imports such as
+# @alga-psa/marketing/lib resolve without requiring a full monorepo prebuild.
+MARKETING_DIST="/app/packages/marketing/dist/lib/index.js"
+if [ ! -f "$MARKETING_DIST" ]; then
+  echo "[server-dev-entrypoint] Building @alga-psa/marketing workspace..."
+  (cd /app/packages/marketing && npm run build --silent)
+fi
+
 cd /app/server
 # Avoid Nx flakiness inside long-lived containers (e.g. `docker compose restart`) by running Next directly.
 # Next 16 defaults to Turbopack; keep that default. Webpack can be forced for debugging via ALGA_NEXT_WEBPACK=1.
