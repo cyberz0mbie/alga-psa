@@ -24,6 +24,21 @@ else
   exit 1
 fi
 
+# The production entrypoint normally exposes the Docker-mounted NextAuth secret to
+# the process environment. This source-dev entrypoint replaces that entrypoint, so
+# mirror the required behavior here. Edge auth reads NEXTAUTH_SECRET directly from
+# process.env and cannot use the filesystem secret provider on its own.
+if [ -z "${NEXTAUTH_SECRET:-}" ]; then
+  NEXTAUTH_SECRET_FILE="/run/secrets/nextauth_secret"
+  if [ -f "$NEXTAUTH_SECRET_FILE" ]; then
+    NEXTAUTH_SECRET=$(tr -d '\r\n' < "$NEXTAUTH_SECRET_FILE")
+    export NEXTAUTH_SECRET
+  else
+    echo "[server-dev-entrypoint] ERROR: NEXTAUTH_SECRET is not set and /run/secrets/nextauth_secret is missing" >&2
+    exit 1
+  fi
+fi
+
 PG_HOST="${PGBOUNCER_HOST:-pgbouncer}"
 PG_PORT="${PGBOUNCER_PORT:-6432}"
 export DATABASE_URL="postgresql://app_user:${DB_PASSWORD}@${PG_HOST}:${PG_PORT}/server"
