@@ -13,6 +13,10 @@ services:
       # that host is explicitly allowed. Set DEV_ALLOWED_ORIGINS in .env to the
       # IP/hostname used in the browser (for example, 206.168.173.214).
       DEV_ALLOWED_ORIGINS: ${DEV_ALLOWED_ORIGINS:-}
+      # Disable PostHog/usage telemetry on the isolated vendor test stack. This
+      # avoids browser-side fetch failures when the test VM cannot reach PostHog.
+      ALGA_USAGE_STATS: "false"
+      NEXT_PUBLIC_ALGA_USAGE_STATS: "false"
       # The stock dev image does not prebuild every workspace dependency. Build
       # the same dependency graph used by the normal CE build before starting
       # Next so package exports never point at missing dist/ files.
