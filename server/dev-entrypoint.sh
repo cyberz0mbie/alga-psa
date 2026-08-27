@@ -89,15 +89,20 @@ if [ "$NEXT_RUNTIME" = "production" ]; then
   # The vendor test VM is intended for realistic UI/integration testing rather
   # than hot-reload development. Build the optimized Next bundle once when the
   # container is recreated, then serve it without per-route dev compilation.
-  # Invoke the Next CLI with Node directly so the requested heap size is applied
-  # to the process doing the webpack build (rather than relying on npx forwarding).
+  # Dockerfile.dev installs npm workspaces from /app, so Next is hoisted into
+  # /app/node_modules rather than /app/server/node_modules.
   BUILD_HEAP_MB="${ALGA_NEXT_BUILD_HEAP_MB:-8192}"
   export NODE_OPTIONS="--max-old-space-size=${BUILD_HEAP_MB}"
   export NEXT_TELEMETRY_DISABLED="1"
+  NEXT_CLI="/app/node_modules/next/dist/bin/next"
+  if [ ! -f "$NEXT_CLI" ]; then
+    echo "[server-dev-entrypoint] ERROR: Next CLI not found at $NEXT_CLI" >&2
+    exit 1
+  fi
   echo "[server-dev-entrypoint] Building optimized Next.js production bundle (heap ${BUILD_HEAP_MB} MB)..."
-  node --max-old-space-size="${BUILD_HEAP_MB}" ./node_modules/next/dist/bin/next build --webpack
+  node --max-old-space-size="${BUILD_HEAP_MB}" "$NEXT_CLI" build --webpack
   echo "[server-dev-entrypoint] Starting optimized Next.js server..."
-  exec npx --no-install next start -H 0.0.0.0 -p 3000
+  exec node "$NEXT_CLI" start -H 0.0.0.0 -p 3000
 fi
 
 # Development mode remains available for debugging and hot reload when needed.
