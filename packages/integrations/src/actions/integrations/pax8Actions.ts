@@ -7,6 +7,7 @@ import { createTenantKnex } from '@alga-psa/db';
 import {
   createVendorIntegration,
   listVendorIntegrations,
+  listVendorSyncRuns,
   updateVendorIntegrationState,
 } from '../../services/vendorIntegrationService';
 import { Pax8ApiClient } from '../../lib/vendors/pax8/pax8ApiClient';
@@ -31,6 +32,30 @@ function maskSecret(value: string): string {
 function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   return String(error);
+}
+
+function parsePersistedSyncResult(value: unknown): Pax8SyncResult | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const candidate = value as Partial<Record<keyof Pax8SyncResult, unknown>>;
+  const keys: Array<keyof Pax8SyncResult> = [
+    'companiesSeen',
+    'productsSeen',
+    'subscriptionsSeen',
+    'usageSnapshotsCreated',
+    'skippedSubscriptions',
+  ];
+
+  if (!keys.every((key) => typeof candidate[key] === 'number' && Number.isFinite(candidate[key]))) {
+    return undefined;
+  }
+
+  return {
+    companiesSeen: candidate.companiesSeen as number,
+    productsSeen: candidate.productsSeen as number,
+    subscriptionsSeen: candidate.subscriptionsSeen as number,
+    usageSnapshotsCreated: candidate.usageSnapshotsCreated as number,
+    skippedSubscriptions: candidate.skippedSubscriptions as number,
+  };
 }
 
 async function findPax8Integration(tenant: string) {
@@ -81,6 +106,7 @@ export const getPax8Settings = withAuth(async (
     lastSyncAt?: string | null;
     lastSyncStatus?: string | null;
     lastError?: string | null;
+    lastSyncResult?: Pax8SyncResult;
     mode: 'read-only';
     automaticReconciliation: false;
   };
@@ -95,7 +121,7 @@ export const getPax8Settings = withAuth(async (
   if (!permitted) return { success: false, error: 'Forbidden' };
 
   try {
-    const { integration } = await findPax8Integration(tenant);
+    const { knex, integration } = await findPax8Integration(tenant);
     if (!integration) {
       return {
         success: true,
@@ -107,10 +133,12 @@ export const getPax8Settings = withAuth(async (
     }
 
     const secretProvider = await getSecretProviderInstance();
-    const [clientId, clientSecret] = await Promise.all([
+    const [clientId, clientSecret, latestRuns] = await Promise.all([
       secretProvider.getTenantSecret(tenant, clientIdSecretName(integration.integration_id)),
       secretProvider.getTenantSecret(tenant, clientSecretSecretName(integration.integration_id)),
+      listVendorSyncRuns(knex, tenant, integration.integration_id, 1),
     ]);
+    const lastSyncResult = parsePersistedSyncResult(latestRuns[0]?.metadata?.pax8Result);
 
     return {
       success: true,
@@ -120,6 +148,7 @@ export const getPax8Settings = withAuth(async (
         lastSyncAt: integration.last_sync_at ?? null,
         lastSyncStatus: integration.last_sync_status ?? null,
         lastError: integration.last_error ?? null,
+        lastSyncResult,
         mode: 'read-only',
         automaticReconciliation: false,
       },
