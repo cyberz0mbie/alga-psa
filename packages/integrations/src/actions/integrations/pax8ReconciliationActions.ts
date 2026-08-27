@@ -153,6 +153,7 @@ export const getPax8ReconciliationPreview = withAuth(async (
         'contract_line_service_configuration as cfg',
         'cfg.contract_line_id',
         'cl.contract_line_id',
+        { rootTenantColumn: 'cc.tenant' },
       );
 
       const contractMatches = await contractQuery
@@ -171,7 +172,7 @@ export const getPax8ReconciliationPreview = withAuth(async (
           'cl.contract_line_name',
           'cfg.quantity',
           'cfg.custom_rate',
-        ) as ContractQuantityMatch[];
+        ) as unknown as ContractQuantityMatch[];
 
       for (const match of contractMatches) {
         const key = pairKey(match.client_id, match.service_id);
