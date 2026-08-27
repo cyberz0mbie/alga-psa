@@ -16,6 +16,7 @@ import {
   mapPax8Client,
   mapPax8Service,
 } from '../../../actions/integrations/pax8MappingActions';
+import Pax8ReconciliationPreview from './Pax8ReconciliationPreview';
 
 interface MatchSuggestion<T> {
   item: T;
@@ -550,6 +551,8 @@ export function Pax8MappingSettings() {
           )}
         </CardContent>
       </Card>
+
+      <Pax8ReconciliationPreview />
     </div>
   );
 }
