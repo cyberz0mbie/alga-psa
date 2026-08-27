@@ -1,4 +1,5 @@
 import type { Knex } from 'knex';
+import { tenantDb } from '@alga-psa/db';
 import {
   beginVendorSyncRun,
   finishVendorSyncRun,
@@ -206,6 +207,19 @@ export async function runPax8ReadOnlySync(
       usageSnapshotsCreated,
       skippedSubscriptions,
     };
+
+    // Keep provider-specific counters with the sync run so the settings page can
+    // show the last completed result after a reload. The generic aggregate
+    // counters remain populated below for cross-provider reporting.
+    await tenantDb(conn, tenant).table('vendor_sync_runs')
+      .where({ sync_run_id: syncRun.sync_run_id })
+      .update({
+        metadata: {
+          mode: 'read-only',
+          provider: 'pax8',
+          pax8Result: result,
+        },
+      });
 
     await finishVendorSyncRun(
       conn,
