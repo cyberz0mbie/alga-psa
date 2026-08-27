@@ -89,8 +89,13 @@ if [ "$NEXT_RUNTIME" = "production" ]; then
   # The vendor test VM is intended for realistic UI/integration testing rather
   # than hot-reload development. Build the optimized Next bundle once when the
   # container is recreated, then serve it without per-route dev compilation.
-  echo "[server-dev-entrypoint] Building optimized Next.js production bundle..."
-  NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=8192}" npx --no-install next build --webpack
+  # Invoke the Next CLI with Node directly so the requested heap size is applied
+  # to the process doing the webpack build (rather than relying on npx forwarding).
+  BUILD_HEAP_MB="${ALGA_NEXT_BUILD_HEAP_MB:-8192}"
+  export NODE_OPTIONS="--max-old-space-size=${BUILD_HEAP_MB}"
+  export NEXT_TELEMETRY_DISABLED="1"
+  echo "[server-dev-entrypoint] Building optimized Next.js production bundle (heap ${BUILD_HEAP_MB} MB)..."
+  node --max-old-space-size="${BUILD_HEAP_MB}" ./node_modules/next/dist/bin/next build --webpack
   echo "[server-dev-entrypoint] Starting optimized Next.js server..."
   exec npx --no-install next start -H 0.0.0.0 -p 3000
 fi
