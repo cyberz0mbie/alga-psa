@@ -42,12 +42,25 @@ fi
 PG_HOST="${PGBOUNCER_HOST:-pgbouncer}"
 PG_PORT="${PGBOUNCER_PORT:-6432}"
 export DATABASE_URL="postgresql://app_user:${DB_PASSWORD}@${PG_HOST}:${PG_PORT}/server"
-export NODE_ENV="development"
 export DB_HOST="${PG_HOST}"
 export DB_PORT="${PG_PORT}"
 export REDIS_HOST="${REDIS_HOST:-redis}"
 export REDIS_PORT="${REDIS_PORT:-6379}"
 export HOCUSPOCUS_URL="${HOCUSPOCUS_URL:-ws://hocuspocus:1234}"
+
+NEXT_RUNTIME="${ALGA_NEXT_RUNTIME:-development}"
+case "$NEXT_RUNTIME" in
+  production)
+    export NODE_ENV="production"
+    ;;
+  development)
+    export NODE_ENV="development"
+    ;;
+  *)
+    echo "[server-dev-entrypoint] ERROR: ALGA_NEXT_RUNTIME must be 'development' or 'production'" >&2
+    exit 1
+    ;;
+esac
 
 # Some startup tasks (e.g. standard invoice template sync) require the AssemblyScript compiler.
 # The template compiler lives in a nested package with its own node_modules.
@@ -63,7 +76,7 @@ fi
 # that are missing at runtime (for example marketing -> opportunities). The normal
 # CE production build already uses `nx build-deps server`; enable that same
 # dependency build for the isolated vendor test stack so the complete dependency
-# closure exists before Next/Turbopack starts.
+# closure exists before Next starts.
 if [ "${ALGA_BUILD_SERVER_DEPS:-0}" = "1" ]; then
   echo "[server-dev-entrypoint] Building complete server workspace dependency graph..."
   cd /app
@@ -71,7 +84,18 @@ if [ "${ALGA_BUILD_SERVER_DEPS:-0}" = "1" ]; then
 fi
 
 cd /app/server
-# Avoid Nx flakiness inside long-lived containers (e.g. `docker compose restart`) by running Next directly.
+
+if [ "$NEXT_RUNTIME" = "production" ]; then
+  # The vendor test VM is intended for realistic UI/integration testing rather
+  # than hot-reload development. Build the optimized Next bundle once when the
+  # container is recreated, then serve it without per-route dev compilation.
+  echo "[server-dev-entrypoint] Building optimized Next.js production bundle..."
+  NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=8192}" npx --no-install next build --webpack
+  echo "[server-dev-entrypoint] Starting optimized Next.js server..."
+  exec npx --no-install next start -H 0.0.0.0 -p 3000
+fi
+
+# Development mode remains available for debugging and hot reload when needed.
 # Next 16 defaults to Turbopack; keep that default. Webpack can be forced for debugging via ALGA_NEXT_WEBPACK=1.
 NEXT_DEV_FLAGS="--hostname 0.0.0.0 --port 3000"
 if [ "${ALGA_NEXT_WEBPACK:-0}" = "1" ]; then
