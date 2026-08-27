@@ -6,7 +6,7 @@ export type VendorProvider = (typeof VENDOR_PROVIDERS)[number];
 export type VendorIntegrationStatus = 'disconnected' | 'connected' | 'error';
 export type VendorMappingStatus = 'unmapped' | 'mapped' | 'ignored';
 export type VendorSyncStatus = 'pending' | 'running' | 'success' | 'partial' | 'failed';
-export type VendorSyncType = 'clients' | 'products' | 'usage' | 'full';
+export type VendorSyncType = 'clients' | 'products' | 'usage' | 'full' | 'reconciliation';
 
 export interface IVendorIntegration extends TenantEntity {
   integration_id: string;
