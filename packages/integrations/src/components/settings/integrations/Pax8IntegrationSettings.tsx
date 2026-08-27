@@ -86,6 +86,7 @@ export function Pax8IntegrationSettings() {
   const canSave = effectiveClientId && effectiveClientSecret;
   const isConfigured = hasClientId && hasClientSecret;
   const isConnected = settings?.integration?.status === 'connected';
+  const displayedSyncResult = syncResult ?? settings?.integration?.lastSyncResult ?? null;
 
   const handleSave = async () => {
     setSaving(true);
@@ -328,27 +329,27 @@ export function Pax8IntegrationSettings() {
             </Alert>
           )}
 
-          {syncResult && (
+          {displayedSyncResult && (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
               <div className="rounded-lg border p-3">
                 <p className="text-xs text-muted-foreground">Companies</p>
-                <p className="text-lg font-semibold">{syncResult.companiesSeen}</p>
+                <p className="text-lg font-semibold">{displayedSyncResult.companiesSeen}</p>
               </div>
               <div className="rounded-lg border p-3">
                 <p className="text-xs text-muted-foreground">Products</p>
-                <p className="text-lg font-semibold">{syncResult.productsSeen}</p>
+                <p className="text-lg font-semibold">{displayedSyncResult.productsSeen}</p>
               </div>
               <div className="rounded-lg border p-3">
                 <p className="text-xs text-muted-foreground">Subscriptions</p>
-                <p className="text-lg font-semibold">{syncResult.subscriptionsSeen}</p>
+                <p className="text-lg font-semibold">{displayedSyncResult.subscriptionsSeen}</p>
               </div>
               <div className="rounded-lg border p-3">
                 <p className="text-xs text-muted-foreground">Usage snapshots</p>
-                <p className="text-lg font-semibold">{syncResult.usageSnapshotsCreated}</p>
+                <p className="text-lg font-semibold">{displayedSyncResult.usageSnapshotsCreated}</p>
               </div>
               <div className="rounded-lg border p-3">
                 <p className="text-xs text-muted-foreground">Skipped</p>
-                <p className="text-lg font-semibold">{syncResult.skippedSubscriptions}</p>
+                <p className="text-lg font-semibold">{displayedSyncResult.skippedSubscriptions}</p>
               </div>
             </div>
           )}
