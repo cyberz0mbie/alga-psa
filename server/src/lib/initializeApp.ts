@@ -744,6 +744,13 @@ async function initializeJobScheduler(storageService: StorageService) {
 
 // Helper function to setup development environment
 async function setupDevelopmentEnvironment() {
+  // Never mutate the seeded admin account in production. This helper is
+  // development-only, but it is invoked from the shared application startup
+  // path, so the guard must happen before looking up or changing Glinda.
+  if (process.env.NODE_ENV !== 'development') {
+    return;
+  }
+
   let newPassword;
   const glinda = await User.findUserByEmail("glinda@emeraldcity.oz");
   if (glinda) {
@@ -762,7 +769,7 @@ async function setupDevelopmentEnvironment() {
 +:+    +:+ +:+        +:+     +:+ +:+        +:+       +:+    +:+ +:+    +:+ +:+ +:+:+ +:+ +:+        :+:+:+  +:+     +:+          +:+ +:+:+ +:+ +:+    +:+ +:+    +:+ :+:
 +#+    +:+ +#++:++#   +#+     +:+ +#++:++#   +#+       +#+    +:+ +#++:++#+  +#+  +:+  +#+ +#++:++#   +#+ +:+ +#+     +#+          +#+  +:+  +#+ +#+    +:+ +#+    +:+ +#++:++#
 +#+    +#+ +#+         +#+   +#+  +#+        +#+       +#+    +#+ +#+        +#+       +#+ +#+        +#+  +#+#+#     +#+          +#+       +#+ +#+    +#+ +#+    +#+ +#+
-#+#    #+# #+#          #+#+#+#   #+#        #+#       #+#    #+# #+#        #+#       #+# #+#        #+#   #+#+#     #+#          #+#       #+# #+#    #+# #+#    #+# #+#
+#+#    #+# #+#          #+ +#+#   #+#        #+#       #+#    #+# #+#        #+#       #+# #+#        #+#   #+#+#     #+#          #+#       #+# #+#    #+# #+#    #+# #+#
 #########  ##########     ###     ########## ########## ########  ###        ###       ### ########## ###    ####     ###          ###       ###  ########  #########  ##########
       `);
     } catch (error) {
