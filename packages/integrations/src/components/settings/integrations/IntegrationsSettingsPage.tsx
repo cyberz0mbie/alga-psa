@@ -23,9 +23,12 @@ import {
   Lock,
   Phone,
   BookOpen,
+  PackageOpen,
 } from 'lucide-react';
 import AccountingIntegrationsSetup from './AccountingIntegrationsSetup';
 import RmmIntegrationsSetup from './RmmIntegrationsSetup';
+import Pax8IntegrationSettings from './Pax8IntegrationSettings';
+import Pax8MappingSettings from './Pax8MappingSettings';
 import { EmailProviderConfiguration } from '../../email/EmailProviderConfiguration';
 import { ProviderCredentialsWorkbench } from './ProviderCredentialsWorkbench';
 import { CalendarEnterpriseIntegrationSettings } from './CalendarEnterpriseIntegrationSettings';
@@ -41,8 +44,6 @@ import {
 } from '../../../lib/calendarAvailability';
 import { getAddOnDestination } from '../../../lib/addOnNavigation';
 
-// Dynamic import for StripeConnectionSettings (EE/OSS modular pattern)
-// Uses dynamic import with type assertion due to TypeScript bundler mode resolution issues
 const StripeConnectionSettings = dynamic(
   () => import('@product/billing/entry').then(mod => (mod as unknown as { StripeConnectionSettings: React.ComponentType }).StripeConnectionSettings),
   {
@@ -63,8 +64,6 @@ const StripeConnectionSettings = dynamic(
 import { EntraIntegrationSummaryCard } from '@alga-psa/integrations/entra/components/entry';
 import { useHuduIntegrationEnabled } from './useHuduIntegrationEnabled';
 
-// Dynamic import for Hudu (EE feature) — `@enterprise` resolves to the real EE
-// component in EE builds and to the CE placeholder stub in CE builds.
 const HuduIntegrationSettings = dynamic(
   () => import('@enterprise/components/settings/integrations/HuduIntegrationSettings'),
   {
@@ -82,14 +81,12 @@ const HuduIntegrationSettings = dynamic(
   }
 );
 
-// Integration category definitions
 interface IntegrationCategory {
   id: string;
   label: string;
   description: string;
   icon: React.ComponentType<{ className?: string }>;
   integrations: IntegrationItem[];
-  /** Optional second level of navigation inside a crowded category. */
   subSections?: IntegrationSubSection[];
 }
 
@@ -113,7 +110,6 @@ function AddOnRequiredNotice({ featureName, addOn, addOnName, description, linkI
   addOn: AddOnKey;
   addOnName: string;
   description: string;
-  /** Sub-sections stay mounted, so notices sharing an add-on need distinct ids. */
   linkId?: string;
 }) {
   return (
@@ -137,30 +133,15 @@ function AddOnRequiredNotice({ featureName, addOn, addOnName, description, linkI
 }
 
 interface IntegrationsSettingsPageProps {
-  /** Whether the user can use Entra sync (Enterprise add-on) */
   canUseEntraSync?: boolean;
-  /** Whether the user can use CIPP (Pro feature) */
   canUseCipp?: boolean;
-  /** Whether the user can use Teams integration (Teams add-on) */
   canUseTeams?: boolean;
-  /** Whether the user can use telephony integrations (Microsoft Teams add-on) */
   canUseTelephony?: boolean;
-  /** Slot for QBO sync health panel (injected from billing to avoid a circular dep) */
   qboSyncHealthSlot?: React.ReactNode;
-  /** Slot for QBO onboarding wizard entry (injected from billing to avoid a circular dep) */
   qboOnboardingSlot?: React.ReactNode;
 }
 
-
-/**
- * Second-level navigation inside a category. Every sub-section stays mounted and
- * the inactive ones are hidden rather than unmounted, so switching back does not
- * re-run each panel's data fetch (and a deep link into one panel does not throw
- * the others' loaded state away).
- */
 function CategorySubSections({ category }: { category: IntegrationCategory }) {
-  // CE strips the EE-only integrations out of the category, so a sub-section
-  // with nothing left in it must not leave an empty tab behind.
   const subSections = (category.subSections ?? []).filter((subSection) =>
     category.integrations.some((integration) => subSection.integrationIds.includes(integration.id)),
   );
@@ -179,8 +160,6 @@ function CategorySubSections({ category }: { category: IntegrationCategory }) {
               onClick={() => setActiveSubSection(subSection.id)}
               className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                 isActive
-                  // -900 ink, not -700: the -700/-50 pair drops to 3.95:1 once
-                  // the ramp inverts in dark mode (themeContract element audit).
                   ? 'bg-[rgb(var(--color-primary-50))] text-[rgb(var(--color-primary-900))]'
                   : 'text-muted-foreground hover:bg-muted'
               }`}
@@ -226,18 +205,15 @@ const IntegrationsSettingsPage: React.FC<IntegrationsSettingsPageProps> = ({
   const categoryParam = searchParams?.get('category');
   const visibleCategoryIds = useMemo(() => getVisibleIntegrationCategoryIds(isEEAvailable), [isEEAvailable]);
 
-  // Initialize selected category from URL param or default to 'accounting'
   const [selectedCategory, setSelectedCategory] = useState<string>(
     resolveIntegrationSettingsCategory(categoryParam, isEEAvailable)
   );
 
-  // Update selected category when URL param changes
   useEffect(() => {
     const nextCategory = resolveIntegrationSettingsCategory(categoryParam, isEEAvailable);
     setSelectedCategory((currentCategory) => (currentCategory === nextCategory ? currentCategory : nextCategory));
   }, [categoryParam, isEEAvailable]);
 
-  // Define integration categories
   const categories: IntegrationCategory[] = useMemo(() => [
     {
       id: 'accounting',
@@ -265,6 +241,26 @@ const IntegrationsSettingsPage: React.FC<IntegrationsSettingsPageProps> = ({
           description: t('integrations.items.rmmSetup.description'),
           component: RmmIntegrationsSetup,
         }
+      ],
+    },
+    {
+      id: 'vendors',
+      label: 'Vendors',
+      description: 'Connect distributors, security platforms, and backup providers for customer mapping, usage reconciliation, and billing visibility.',
+      icon: PackageOpen,
+      integrations: [
+        {
+          id: 'pax8',
+          name: 'Pax8',
+          description: 'Import Pax8 customers, subscribed products, and quantities for read-only reconciliation.',
+          component: Pax8IntegrationSettings,
+        },
+        {
+          id: 'pax8-mappings',
+          name: 'Pax8 mappings',
+          description: 'Map Pax8 customers and products to existing AlgaPSA clients and services.',
+          component: Pax8MappingSettings,
+        },
       ],
     },
     ...(isHuduEnabled ? [{
@@ -342,8 +338,6 @@ const IntegrationsSettingsPage: React.FC<IntegrationsSettingsPageProps> = ({
           isEE: true,
         },
       ],
-      // Communication grew past a single scroll: email, Teams and telephony each
-      // own a sub-section so a Teams admin is not scrolling past call history.
       subSections: [
         { id: 'email', label: t('integrations.items.email.name'), icon: Mail, integrationIds: ['email'] },
         { id: 'microsoft-teams', label: t('integrations.items.teams.name'), icon: Cloud, integrationIds: ['teams'] },
@@ -397,7 +391,6 @@ const IntegrationsSettingsPage: React.FC<IntegrationsSettingsPageProps> = ({
           id: 'entra',
           name: t('integrations.items.entra.name'),
           description: t('integrations.items.entra.description'),
-          // Entra owns its own route now; the category keeps a summary and a way in.
           component: canUseEntraSync
             ? () => <EntraIntegrationSummaryCard />
             : () => (
@@ -427,17 +420,14 @@ const IntegrationsSettingsPage: React.FC<IntegrationsSettingsPageProps> = ({
         }] : []),
       ],
     },
-  ], [canUseCipp, canUseEntraSync, canUseTeams, canUseTelephony, isEEAvailable, isHuduEnabled, t]);
+  ], [canUseCipp, canUseEntraSync, canUseTeams, canUseTelephony, isEEAvailable, isHuduEnabled, qboOnboardingSlot, qboSyncHealthSlot, t]);
 
-  // Filter out empty categories
   const visibleCategories = categories.filter((category) => {
     return category.integrations.length > 0 && visibleCategoryIds.includes(category.id);
   });
 
-  // Get current category
   const currentCategory = visibleCategories.find(cat => cat.id === selectedCategory) || visibleCategories[0];
 
-  // Build tab content
   const tabContent: TabContent[] = visibleCategories.map(category => ({
     id: category.id,
     label: category.label,
@@ -460,7 +450,6 @@ const IntegrationsSettingsPage: React.FC<IntegrationsSettingsPageProps> = ({
           </div>
         )}
 
-        {/* Integration components */}
         {category.integrations.length > 0 ? (
           category.subSections ? (
             <CategorySubSections category={category} />
@@ -487,7 +476,6 @@ const IntegrationsSettingsPage: React.FC<IntegrationsSettingsPageProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Category tabs */}
       <CustomTabs
         tabs={tabContent}
         defaultTab={currentCategory?.id ?? 'accounting'}

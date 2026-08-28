@@ -35,6 +35,17 @@ const EXCLUDED_TABLES: string[] = [
   'knex_migrations_lock',       // Knex internal
   'pending_tenant_deletions',   // Managed separately in deletion workflow
   'spatial_ref_sys',            // PostGIS system table
+
+  // Community vendor-integration staging/history tables are deliberately kept
+  // out of the Enterprise Temporal deletion implementation. Migration
+  // 20260826231500_vendor_integration_tenant_cascade makes each tenant FK
+  // ON DELETE CASCADE, so PostgreSQL/Citus removes these rows atomically when
+  // the tenant is deleted. They do not FK to clients or service_catalog.
+  'vendor_client_mappings',
+  'vendor_integrations',
+  'vendor_service_mappings',
+  'vendor_sync_runs',
+  'vendor_usage_snapshots',
 ];
 
 // Foreign-key constraints that are exempt from the ordering check because
@@ -227,7 +238,7 @@ async function validateDeletionOrder(): Promise<ValidationResult> {
     const relevantDbTables = tablesInDatabase.filter(
       (t) => !EXCLUDED_TABLES.includes(t)
     );
-    console.log(`  After excluding system tables: ${relevantDbTables.length} tables`);
+    console.log(`  After excluding system/cascade-managed tables: ${relevantDbTables.length} tables`);
 
     // Find missing tables (in database but not in deletion order)
     const deletionOrderSet = new Set(tablesInDeletionOrder);
@@ -336,7 +347,7 @@ async function main() {
     }
 
     if (result.success) {
-      console.log('\n✅ All tenant-scoped tables are included in the deletion order!');
+      console.log('\n✅ All required tenant-scoped tables are covered by deletion order or explicit database cascade management!');
       process.exit(0);
     } else {
       console.log('\n❌ Validation FAILED. Please fix the issues above.');

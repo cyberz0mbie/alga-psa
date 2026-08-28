@@ -5,6 +5,20 @@
  * Contains Knex configuration, tenant context management, and database utilities.
  */
 
+import { tenantTableMetadata as tenantTableMetadataRegistry } from './lib/tenantTableMetadata';
+
+// Vendor integration tables are tenant-scoped and must be registered with the
+// runtime tenant query guard before tenantDb() can access them. Keep these here
+// with the DB infrastructure so every vendor provider (Pax8, Acronis,
+// Bitdefender, etc.) shares the same tenant-safety registration.
+Object.assign(tenantTableMetadataRegistry, {
+  vendor_integrations: { scope: 'tenant' as const },
+  vendor_client_mappings: { scope: 'tenant' as const },
+  vendor_service_mappings: { scope: 'tenant' as const },
+  vendor_usage_snapshots: { scope: 'tenant' as const },
+  vendor_sync_runs: { scope: 'tenant' as const },
+});
+
 // Knex Configuration
 export { getKnexConfig, getFullConfig, getKnexConfigWithTenant, getPostgresConnection } from './lib/knexfile';
 export type { CustomKnexConfig } from './lib/knexfile';

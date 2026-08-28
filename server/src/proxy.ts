@@ -5,10 +5,10 @@ import { i18nMiddleware, shouldSkipI18n } from './middleware/i18n';
 import { resolveDeploymentCapabilities, type DeploymentCapabilities } from './lib/deployment/deploymentProfile';
 import { resolveRequestHost, detectForwardedHostRewrite } from './lib/deployment/requestHost';
 
-// Minimal, Edge-safe middleware: API key header presence check for select API routes
+// Request proxy: API key header presence check for select API routes
 // and auth gate for /msp paths, plus i18n locale resolution. Heavy logic stays in route handlers.
 //
-// Important: for `/api/*` routes, this middleware runs before the route handler. A route can be
+// Important: for `/api/*` routes, this proxy runs before the route handler. A route can be
 // session-authenticated at the handler level and still fail here with `Unauthorized: API key missing`
 // unless it is explicitly allowlisted below.
 
@@ -45,7 +45,7 @@ function corsPreflightResponse(origin: string | null): NextResponse {
 }
 
 // =============================================================================
-// Middleware
+// Proxy
 // =============================================================================
 const protectedPrefix = '/msp';
 const clientPortalPrefix = '/client-portal';
@@ -58,7 +58,7 @@ export interface ClientPortalThemeRequestContext {
 
 /**
  * Preserve the tenant hints carried by canonical client-portal auth URLs.
- * The root layout cannot read search params, so middleware promotes these
+ * The root layout cannot read search params, so the proxy promotes these
  * validated values to request headers for server-rendered theme resolution.
  */
 export function getClientPortalThemeRequestContext(
@@ -263,14 +263,14 @@ function maybeWarnForwardedHostRewrite(
     return;
   }
   forwardedHostWarnAt.set(tellTale.forwardedHost, now);
-  console.warn('[middleware] reverse proxy is rewriting the Host header', {
+  console.warn('[proxy] reverse proxy is rewriting the Host header', {
     forwardedHost: tellTale.forwardedHost,
     rewrittenTo: canonical?.hostname,
     hint: 'Custom portal domain is relying on X-Forwarded-Host; also forward the original Host header for resilience.',
   });
 }
 
-const _middleware = auth((request) => {
+const _proxy = auth((request) => {
   const pathname = request.nextUrl.pathname;
   const deploymentCaps = resolveDeploymentCapabilities();
   const { hostname: requestHostname, hostHeader: requestHostHeader } = resolveRequestHost(request, deploymentCaps);
@@ -310,21 +310,21 @@ const _middleware = auth((request) => {
     requestHeaders.set('x-client-portal-tenant-slug', clientPortalThemeContext.tenantSlug);
   }
 
-  // Create a response that will be modified throughout the middleware chain
+  // Create a response that will be modified throughout the proxy chain
   let response = NextResponse.next({
     request: {
       headers: requestHeaders,
     },
   });
 
-  // Edge middleware cannot query the database, but client-scoped identifiers
+  // The proxy does not query the database, but client-scoped identifiers
   // are incompatible with an internal user. Reject this contradictory token
   // immediately; the Node session gate performs the definitive DB comparison.
   if (
     !pathname.startsWith('/api/auth/')
     && hasContradictoryPortalIdentity(request.auth?.user)
   ) {
-    console.warn('[middleware] rejecting contradictory internal/client session claims', {
+    console.warn('[proxy] rejecting contradictory internal/client session claims', {
       tenant: request.auth?.user?.tenant,
       userId: request.auth?.user?.id,
     });
@@ -371,11 +371,11 @@ const _middleware = auth((request) => {
     const apiKey = request.headers.get('x-api-key');
 
     // Skip paths that don't need API authentication.
-    // Any session-authenticated `/api/*` route must be added here or middleware will return
+    // Any session-authenticated `/api/*` route must be added here or proxy will return
     // `401 Unauthorized: API key missing` before the route handler has a chance to run.
     // Log for debugging CORS issues
     if (process.env.NODE_ENV === 'development') {
-      console.log('[CORS Middleware]', {
+      console.log('[CORS Proxy]', {
         pathname,
         origin,
         hasApiKey: !!apiKey,
@@ -431,7 +431,7 @@ const _middleware = auth((request) => {
       // Add portalDomain for branding
       canonicalLogin.searchParams.set('portalDomain', hostHeader);
 
-      console.log('[middleware] signin vanity redirect', {
+      console.log('[proxy] signin vanity redirect', {
         requestHost: requestHostname,
         canonicalHost: canonicalUrlEnv.hostname,
         redirect: canonicalLogin.toString(),
@@ -460,7 +460,7 @@ const _middleware = auth((request) => {
   // Protect MSP app routes: validate user type
   if (pathname.startsWith(protectedPrefix)) {
     if (!request.auth) {
-      // In dev, Edge auth can occasionally fail to hydrate the session during HMR/middleware rebuilds.
+      // In dev, proxy auth can occasionally fail to hydrate the session during HMR/rebuilds.
       // If the browser still has a session cookie, avoid redirecting to /auth/signin (which looks like "being logged out").
       // Let the Node runtime handle auth in the page/server actions instead.
       if (process.env.NODE_ENV === 'development') {
@@ -523,7 +523,7 @@ const _middleware = auth((request) => {
         const callbackUrl = `${protocol}://${hostHeader}${request.nextUrl.pathname}${request.nextUrl.search}`;
         canonicalLogin.searchParams.set('callbackUrl', callbackUrl);
         canonicalLogin.searchParams.set('portalDomain', hostHeader);
-        console.log('[middleware] vanity redirect', {
+        console.log('[proxy] vanity redirect', {
           requestHost: requestHostname,
           callback: callbackUrl,
           redirect: canonicalLogin.toString(),
@@ -572,8 +572,8 @@ const _middleware = auth((request) => {
   return applyCorsHeaders(response, origin);
 });
 
-export default _middleware;
-export { _middleware as middleware };
+export default _proxy;
+export { _proxy as proxy };
 
 export const config = {
   matcher: [

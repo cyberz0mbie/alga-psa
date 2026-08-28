@@ -7,6 +7,7 @@
  */
 
 export * from './actions';
+export * from './actions/integrations/pax8Actions';
 export * from './components';
 export * from './email';
 export * from './services';

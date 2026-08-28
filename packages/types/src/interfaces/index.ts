@@ -78,6 +78,7 @@ export * from './timeEntry.interfaces';
 export * from './hourBlock.interfaces';
 export * from './usage.interfaces';
 export * from './validation.interfaces';
+export * from './vendorIntegration.interfaces';
 export * from './workItem.interfaces';
 
 // Email interfaces are intentionally not exported here to avoid name collisions with outbound email types.

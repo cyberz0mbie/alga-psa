@@ -1,0 +1,30 @@
+services:
+  server:
+    # docker-compose.ce.yaml overrides Dockerfile.dev's ENTRYPOINT with
+    # /app/entrypoint.sh, which does not exist in the development image.
+    # Restore the source-image entrypoint for this test stack.
+    entrypoint: ["/app/server-dev-entrypoint.sh"]
+    environment:
+      # Vendor integrations persist tenant credentials through Alga's filesystem
+      # secret provider. Docker's /run/secrets location is intended for mounted
+      # application secrets, so use a writable bind for tenant-level test secrets.
+      SECRET_FS_BASE_PATH: /app/runtime-secrets
+      # Retained for optional development-mode debugging. Production-mode Next
+      # does not use dev allowed origins for HMR.
+      DEV_ALLOWED_ORIGINS: ${DEV_ALLOWED_ORIGINS:-}
+      # Disable PostHog/usage telemetry on the isolated vendor test stack. This
+      # avoids browser-side fetch failures when the test VM cannot reach PostHog.
+      ALGA_USAGE_STATS: "false"
+      NEXT_PUBLIC_ALGA_USAGE_STATS: "false"
+      # The stock source image does not prebuild every workspace dependency. Build
+      # the same dependency graph used by the normal CE build before starting Next
+      # so package exports never point at missing dist/ files.
+      ALGA_BUILD_SERVER_DEPS: "1"
+      # Use an optimized Next production build for realistic test-VM navigation.
+      # Container recreation takes longer because the bundle is compiled once at
+      # startup, but pages no longer compile individually as they are opened.
+      ALGA_NEXT_RUNTIME: "production"
+    volumes:
+      - type: bind
+        source: ./secrets
+        target: /app/runtime-secrets

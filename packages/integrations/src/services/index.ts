@@ -3,3 +3,4 @@ export * from './csvTaxImportValidator';
 export * from './csvTaxImportService';
 export * from './xeroCsvClientSyncService';
 export * from './xeroCsvTaxImportService';
+export * from './vendorIntegrationService';

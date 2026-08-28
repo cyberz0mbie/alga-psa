@@ -24,15 +24,43 @@ else
   exit 1
 fi
 
+# The production entrypoint normally exposes the Docker-mounted NextAuth secret to
+# the process environment. This source-dev entrypoint replaces that entrypoint, so
+# mirror the required behavior here. Edge auth reads NEXTAUTH_SECRET directly from
+# process.env and cannot use the filesystem secret provider on its own.
+if [ -z "${NEXTAUTH_SECRET:-}" ]; then
+  NEXTAUTH_SECRET_FILE="/run/secrets/nextauth_secret"
+  if [ -f "$NEXTAUTH_SECRET_FILE" ]; then
+    NEXTAUTH_SECRET=$(tr -d '\r\n' < "$NEXTAUTH_SECRET_FILE")
+    export NEXTAUTH_SECRET
+  else
+    echo "[server-dev-entrypoint] ERROR: NEXTAUTH_SECRET is not set and /run/secrets/nextauth_secret is missing" >&2
+    exit 1
+  fi
+fi
+
 PG_HOST="${PGBOUNCER_HOST:-pgbouncer}"
 PG_PORT="${PGBOUNCER_PORT:-6432}"
 export DATABASE_URL="postgresql://app_user:${DB_PASSWORD}@${PG_HOST}:${PG_PORT}/server"
-export NODE_ENV="development"
 export DB_HOST="${PG_HOST}"
 export DB_PORT="${PG_PORT}"
 export REDIS_HOST="${REDIS_HOST:-redis}"
 export REDIS_PORT="${REDIS_PORT:-6379}"
 export HOCUSPOCUS_URL="${HOCUSPOCUS_URL:-ws://hocuspocus:1234}"
+
+NEXT_RUNTIME="${ALGA_NEXT_RUNTIME:-development}"
+case "$NEXT_RUNTIME" in
+  production)
+    export NODE_ENV="production"
+    ;;
+  development)
+    export NODE_ENV="development"
+    ;;
+  *)
+    echo "[server-dev-entrypoint] ERROR: ALGA_NEXT_RUNTIME must be 'development' or 'production'" >&2
+    exit 1
+    ;;
+esac
 
 # Some startup tasks (e.g. standard invoice template sync) require the AssemblyScript compiler.
 # The template compiler lives in a nested package with its own node_modules.
@@ -43,8 +71,41 @@ if [ ! -f "$ASC_JS" ]; then
   (cd /app/server/src/invoice-templates/assemblyscript && npm install --cache /app/.npm-cache --silent)
 fi
 
+# The stock source-development image does not prebuild every workspace package.
+# Some server imports therefore fall through package exports to dist/ entrypoints
+# that are missing at runtime (for example marketing -> opportunities). The normal
+# CE production build already uses `nx build-deps server`; enable that same
+# dependency build for the isolated vendor test stack so the complete dependency
+# closure exists before Next starts.
+if [ "${ALGA_BUILD_SERVER_DEPS:-0}" = "1" ]; then
+  echo "[server-dev-entrypoint] Building complete server workspace dependency graph..."
+  cd /app
+  npx --no-install nx build-deps server --output-style=static
+fi
+
 cd /app/server
-# Avoid Nx flakiness inside long-lived containers (e.g. `docker compose restart`) by running Next directly.
+
+if [ "$NEXT_RUNTIME" = "production" ]; then
+  # The vendor test VM is intended for realistic UI/integration testing rather
+  # than hot-reload development. Build the optimized Next bundle once when the
+  # container is recreated, then serve it without per-route dev compilation.
+  # Dockerfile.dev installs npm workspaces from /app, so Next is hoisted into
+  # /app/node_modules rather than /app/server/node_modules.
+  BUILD_HEAP_MB="${ALGA_NEXT_BUILD_HEAP_MB:-8192}"
+  export NODE_OPTIONS="--max-old-space-size=${BUILD_HEAP_MB}"
+  export NEXT_TELEMETRY_DISABLED="1"
+  NEXT_CLI="/app/node_modules/next/dist/bin/next"
+  if [ ! -f "$NEXT_CLI" ]; then
+    echo "[server-dev-entrypoint] ERROR: Next CLI not found at $NEXT_CLI" >&2
+    exit 1
+  fi
+  echo "[server-dev-entrypoint] Building optimized Next.js production bundle (heap ${BUILD_HEAP_MB} MB)..."
+  node --max-old-space-size="${BUILD_HEAP_MB}" "$NEXT_CLI" build --webpack
+  echo "[server-dev-entrypoint] Starting optimized Next.js server..."
+  exec node "$NEXT_CLI" start -H 0.0.0.0 -p 3000
+fi
+
+# Development mode remains available for debugging and hot reload when needed.
 # Next 16 defaults to Turbopack; keep that default. Webpack can be forced for debugging via ALGA_NEXT_WEBPACK=1.
 NEXT_DEV_FLAGS="--hostname 0.0.0.0 --port 3000"
 if [ "${ALGA_NEXT_WEBPACK:-0}" = "1" ]; then
